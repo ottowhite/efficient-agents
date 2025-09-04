@@ -1,24 +1,26 @@
+import sys
+import os
+# Add project root to path so we can import from src
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+
 import yappi
 import asyncio
 from dotenv import load_dotenv
 import re
 import time
-import sys
-import os
 from asyncio import create_task
 from transformers import AutoTokenizer
 from copy import deepcopy
 from typing import Optional
 from langchain_openai import ChatOpenAI, OpenAI
-from utils import system_prompt, custom_chat_template, dataset_name
+from src.utils import system_prompt, custom_chat_template, dataset_name, flatten
 from datasets import load_dataset, Dataset
 import numpy as np
 from tqdm import tqdm
-from utils import flatten
 
-from config import Config
-from sal.score import score
-from sal.qwen_math_parser import extract_answer, math_equal
+from src.config import Config
+from src.sal.score import score
+from src.sal.qwen_math_parser import extract_answer, math_equal
 
 class Tokenizer:
     def __init__(self, model_name: str, chat_template: str):
@@ -188,7 +190,7 @@ class BeamSearch:
         self.prm = prm
         self.search_width = search_width
         self.select_top_k = select_top_k
-        self.completed_thoughts = []
+        self.completed_thoughts: list[Thought] = []
         self.max_iterations = max_iterations
     
     async def run(self):
@@ -261,7 +263,7 @@ class DFS:
         self.search_width = search_width
         self.select_top_k = select_top_k
         self.sampling_window_size = sampling_window_size
-        self.completed_thoughts = []
+        self.completed_thoughts: list[Thought] = []
         self.max_iterations = max_iterations
 
         if self.sampling_window_size is not None:
@@ -415,7 +417,7 @@ def calculate_and_print_accuracies(scored_dataset: Dataset) -> None:
     pred_fields = [key for key in sample.keys() if key.startswith('pred_')]
     
     # Group by N value and sort for organized display
-    pred_groups = {}
+    pred_groups: dict[int, dict[str, str]] = {}
     for field in pred_fields:
         if '@' in field:
             strategy, n_str = field.split('@')
@@ -491,16 +493,14 @@ async def main():
     tokenizer = Tokenizer(model_name, custom_chat_template)
     llm = LLM(
         model_name=model_name,
-        # base_url="http://localhost:9999/v1",
-        base_url="http://localhost:30001/v1",
+        base_url="http://localhost:9999/v1",
         temperature=0.8,
         tokenizer=tokenizer
     )
 
     prm = PRM(
         model_name="RLHFlow/Llama3.1-8B-PRM-Deepseek-Data",
-        # base_url="http://localhost:8888/v1"
-        base_url="http://localhost:30000/v1"
+        base_url="http://localhost:8888/v1"
     )
 
     dataset = load_dataset(dataset_name, split="test")
@@ -508,7 +508,7 @@ async def main():
     semaphore = asyncio.Semaphore(100)
     time_start = time.time()
     # Convert dataset to list and access elements properly
-    dataset_list = list(dataset)
+    dataset_list = list(dataset)[:10]
     beam_search_tasks = [create_task(run_beam_search_with_semaphore(sample["problem"], semaphore, llm, prm)) for sample in dataset_list]
 
     for future in tqdm(

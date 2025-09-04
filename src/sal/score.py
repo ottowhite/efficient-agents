@@ -1,9 +1,9 @@
 from datasets import Dataset
 from tqdm import tqdm
 
-from config import Config
-from sal.aggregate import aggregate_scores
-from sal.math import (
+from src.config import Config
+from src.sal.aggregate import aggregate_scores
+from src.sal.math import (
     compute_maj_pred,
     compute_naive_pred,
     compute_weighted_pred,

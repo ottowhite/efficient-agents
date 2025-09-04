@@ -5,21 +5,21 @@ from src.sal.qwen_math_parser import extract_answer, math_equal
 def create_dataset_from_results(dataset_list: list, answer_thoughts: list) -> Dataset:
     """Transform beam search results into dataset format matching beam_search_async.py"""
     updated_samples = []
-    for problem_data, problem_thoughts in zip(dataset_list, answer_thoughts):
+    for problem_data, problem_thought_dicts in zip(dataset_list, answer_thoughts):
         # Create completions and scores from thoughts
         completions = []
         scores = []
         
-        for thought in problem_thoughts:
+        for thought_dict in problem_thought_dicts:
             # Join all steps into a single completion text
-            completion_text = "\n\n".join(thought.steps)
+            completion_text = "\n\n".join(thought_dict["steps"])
             completions.append(completion_text)
             # Use the step-wise scores
-            scores.append(thought.scores)
+            scores.append(thought_dict["scores"])
         
         # Find best completion based on last score (matching beam_search_async logic)
         if completions:
-            best_idx = max(range(len(problem_thoughts)), key=lambda i: problem_thoughts[i].scores[-1] if problem_thoughts[i].scores else 0)
+            best_idx = max(range(len(problem_thought_dicts)), key=lambda i: problem_thought_dicts[i]["scores"][-1] if problem_thought_dicts[i]["scores"] else 0)
             pred = completions[best_idx]
         else:
             pred = ""

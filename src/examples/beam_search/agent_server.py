@@ -72,40 +72,19 @@ async def beam_search_endpoint():
         search_width = data.get("search_width", 4)
         select_top_k = data.get("select_top_k", 1)
         max_iterations = data.get("max_iterations", 40)
-        
-        # Run beam search asynchronously
-        async def run_beam_search():
-            # Type assertion since we've already checked for None above
-            assert llm is not None and prm is not None
-            beam_search = BeamSearch(
-                problem=problem,
-                llm=llm,
-                prm=prm,
-                search_width=search_width,
-                select_top_k=select_top_k,
-                max_iterations=max_iterations
-            )
-            return await beam_search.run()
-        
-        thoughts = await run_beam_search()
 
-        def thought_to_dict(thought: Thought) -> dict:
-            return {
-                "problem": thought.problem,
-                "steps": thought.steps,
-                "scores": thought.scores
-            }
+        beam_search = BeamSearch(
+            problem=problem,
+            llm=llm,
+            prm=prm,
+            search_width=search_width,
+            select_top_k=select_top_k,
+            max_iterations=max_iterations
+        )
 
-        # Convert thoughts to dictionaries for JSON serialization
-        thoughts_dict = [thought_to_dict(thought) for thought in thoughts]
-        
-        return jsonify({
-            "thoughts": thoughts_dict,
-            "search_width": search_width,
-            "select_top_k": select_top_k,
-            "max_iterations": max_iterations,
-            "num_results": len(thoughts_dict)
-        })
+        thoughts = await beam_search.run()
+
+        return jsonify([thought.to_dict() for thought in thoughts])
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500

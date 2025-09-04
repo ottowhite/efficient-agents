@@ -74,6 +74,13 @@ class Thought:
 
         return conversation
     
+    def to_dict(self) -> dict:
+        return {
+            "problem": self.problem,
+            "steps": self.steps,
+            "scores": self.scores
+        }
+    
     def __str__(self) -> str:
         steps_str = "\n".join(self.steps)
         last_score = self.scores[-1] if self.scores else None

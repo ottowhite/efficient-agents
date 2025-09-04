@@ -51,7 +51,7 @@ async def main():
     semaphore = asyncio.Semaphore(100)
     time_start = time.time()
     # Convert dataset to list and access elements properly
-    dataset_list = list(dataset)[:50]
+    dataset_list = list(dataset)[:10]
     beam_search_tasks = [create_task(run_beam_search_with_semaphore(sample["problem"], semaphore, llm, prm)) for sample in dataset_list]
 
     for future in tqdm(
@@ -62,10 +62,11 @@ async def main():
     time_end = time.time()
     print(f"Time taken: {time_end - time_start} seconds")
 
-    answer_thought_lists = [await future for future in beam_search_tasks]
+    answer_thought_lists = await asyncio.gather(*beam_search_tasks)
+    answer_thought_dict_lists = [list(thought.to_dict() for thought in thought_list) for thought_list in answer_thought_lists]
 
     # Transform results into dataset format matching beam_search_async.py
-    result_dataset = create_dataset_from_results(dataset_list, answer_thought_lists)
+    result_dataset = create_dataset_from_results(dataset_list, answer_thought_dict_lists)
 
     # Create config for scoring (using defaults that match the search parameters)
     # Use the first result to determine search width, fallback to 4

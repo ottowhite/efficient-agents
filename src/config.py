@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Config:
-    new_configuration: dict[str, any] = field(default_factory=dict)
+    new_configuration: dict[str, object] = field(default_factory=dict)
     prm_backend: Literal["vllm", "sglang"] = "vllm"
     prm_score_caching: bool = False
     llm_prefix_caching: bool = False

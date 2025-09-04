@@ -50,16 +50,14 @@ class WorkDispatcher:
         ]
         
         # Process tasks with progress bar
-        results = []
         for future in tqdm(
             asyncio.as_completed(tasks), 
             total=len(tasks), 
             desc="Processing problems"
         ):
-            result = await future
-            results.append(result)
+            await future
         
-        return results
+        return await asyncio.gather(*tasks)
 
 def create_dataset_from_results(dataset_list: list, beam_search_results: list) -> Dataset:
     """Transform beam search results into dataset format matching beam_search_async.py"""

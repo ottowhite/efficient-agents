@@ -1,15 +1,8 @@
-import sys
-import os
-# Add project root to path so we can import from src
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-
-from quart import Quart, request, jsonify, Response
+from quart import Quart, request, jsonify
 from dotenv import load_dotenv
 from src.utils import custom_chat_template
 from src.examples.beam_search.models import LLM, PRM, Tokenizer
-from src.examples.beam_search.searches import BeamSearch
-import numpy as np
-from asyncio import create_task
+from src.examples.beam_search.searches import BeamSearch, Thought
 
 # Initialize Flask app
 app = Quart(__name__)
@@ -95,9 +88,16 @@ async def beam_search_endpoint():
             return await beam_search.run()
         
         thoughts = await run_beam_search()
-        
+
+        def thought_to_dict(thought: Thought) -> dict:
+            return {
+                "problem": thought.problem,
+                "steps": thought.steps,
+                "scores": thought.scores
+            }
+
         # Convert thoughts to dictionaries for JSON serialization
-        thoughts_dict = [thought.to_dict() for thought in thoughts]
+        thoughts_dict = [thought_to_dict(thought) for thought in thoughts]
         
         return jsonify({
             "thoughts": thoughts_dict,

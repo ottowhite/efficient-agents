@@ -3,7 +3,7 @@ from quart import Quart, request, jsonify
 from dotenv import load_dotenv
 from src.utils import custom_chat_template
 from src.examples.beam_search.models import LLM, PRM, Tokenizer
-from src.examples.beam_search.searches import DFS
+from src.examples.beam_search.searches import BeamSearch
 
 # Initialize Flask app
 app = Quart(__name__)
@@ -74,14 +74,13 @@ async def beam_search_endpoint():
         select_top_k = data.get("select_top_k", 1)
         max_iterations = data.get("max_iterations", 40)
 
-        beam_search = DFS(
+        beam_search = BeamSearch(
             problem=problem,
             llm=llm,
             prm=prm,
             search_width=search_width,
             select_top_k=select_top_k,
-            max_iterations=max_iterations,
-            sampling_window_size=10
+            max_iterations=max_iterations
         )
 
         thoughts = await beam_search.run()

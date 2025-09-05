@@ -25,7 +25,7 @@ class WorkDispatcher:
         """Send a beam search request to the agentic server using round-robin load balancing"""
         async with self.semaphore:
             server_url = next(self.url_cycle)
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60 * 24)) as session:
                 payload = {
                     "problem": problem,
                     "search_width": search_width,
@@ -71,17 +71,19 @@ async def main():
     # Configuration
     base_server_port = os.environ.get("BASE_SERVER_PORT", None)
     num_replicas = os.environ.get("NUM_REPLICAS", None)
+    num_problems = os.environ.get("NUM_PROBLEMS", None)
 
     assert base_server_port is not None, "BASE_SERVER_PORT must be set"
     assert num_replicas is not None, "NUM_REPLICAS must be set"
+    assert num_problems is not None, "NUM_PROBLEMS must be set"
 
     base_server_port = int(base_server_port)
     num_replicas = int(num_replicas)
+    num_problems = int(num_problems)
     max_concurrent_requests = 100
     search_width = 4
     select_top_k = 1
     max_iterations = 40
-    num_problems = 10
 
     print("="*80)
     print("WORK DISPATCHER - BEAM SEARCH EVALUATION")

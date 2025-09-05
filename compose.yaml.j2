@@ -63,6 +63,25 @@ services:
     #       bash -lc "set -euo pipefail && pip3 install --editable . && python3 examples/langchain/beam_search/beam_search_langchain.py"
     #
 
+{% for i in range(replicas) %}
+  beam-search-server-{{ i }}:
+    image: agent-server
+    volumes:
+      - ./src/:/app/src/
+    environment:
+      - PORT={{ base_port + i }}
+    ports:
+      - "{{ base_port + i }}:{{ base_port + i }}"
+    env_file:
+      - .env
+    healthcheck:
+      test: curl --fail http://localhost:{{ base_port + i }}/health || exit 1
+      interval: 10s
+      timeout: 30s
+      retries: 3
+      start_period: 90s
+{% endfor %}
+
   qwen-embedding-8b:
     image: vllm/vllm-openai:latest
     command: >-

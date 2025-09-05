@@ -16,6 +16,9 @@ class Thought:
         self.scores.append(score)
     
     def cumulative_score(self) -> float:
+        if len(self.scores) == 0:
+            return 0.0
+        
         if self.score_mode == "cumulative":
             """Calculate cumulative score as product of all step scores multiplied by number of steps."""
             if not self.scores:

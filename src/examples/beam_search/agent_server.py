@@ -1,8 +1,9 @@
+import os
 from quart import Quart, request, jsonify
 from dotenv import load_dotenv
 from src.utils import custom_chat_template
 from src.examples.beam_search.models import LLM, PRM, Tokenizer
-from src.examples.beam_search.searches import BeamSearch, Thought
+from src.examples.beam_search.searches import DFS
 
 # Initialize Flask app
 app = Quart(__name__)
@@ -21,14 +22,14 @@ def initialize_models():
     
     llm = LLM(
         model_name=model_name,
-        base_url="http://localhost:9999/v1",
+        base_url="http://llama1b-llm:8000/v1",
         temperature=0.8,
         tokenizer=tokenizer
     )
 
     prm = PRM(
         model_name="RLHFlow/Llama3.1-8B-PRM-Deepseek-Data",
-        base_url="http://localhost:8888/v1"
+        base_url="http://llama8b-prm:8000/v1"
     )
 
 @app.get('/health')
@@ -73,13 +74,14 @@ async def beam_search_endpoint():
         select_top_k = data.get("select_top_k", 1)
         max_iterations = data.get("max_iterations", 40)
 
-        beam_search = BeamSearch(
+        beam_search = DFS(
             problem=problem,
             llm=llm,
             prm=prm,
             search_width=search_width,
             select_top_k=select_top_k,
-            max_iterations=max_iterations
+            max_iterations=max_iterations,
+            sampling_window_size=10
         )
 
         thoughts = await beam_search.run()
@@ -92,5 +94,6 @@ async def beam_search_endpoint():
 if __name__ == '__main__':
     print("Initializing models...")
     initialize_models()
-    print("Models initialized. Starting Flask server...")
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    port = int(os.environ.get("PORT", "5000"))
+    print(f"Models initialized. Starting Flask server on port {port}...")
+    app.run(host='0.0.0.0', port=port, debug=True)

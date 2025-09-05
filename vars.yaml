@@ -1,0 +1,2 @@
+replicas: 1
+base_port: 5000

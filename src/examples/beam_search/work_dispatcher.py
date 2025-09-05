@@ -1,6 +1,8 @@
 import asyncio
 import aiohttp
+import os
 import time
+from itertools import cycle
 from datasets import load_dataset, Dataset
 from tqdm import tqdm
 
@@ -11,13 +13,18 @@ from src.examples.beam_search.scoring import calculate_and_print_accuracies, cre
 
 
 class WorkDispatcher:
-    def __init__(self, server_url: str = "http://localhost:5000", max_concurrent_requests: int = 100):
-        self.server_url = server_url
+    def __init__(self, location: str, base_port: int, num_replicas: int, max_concurrent_requests: int = 100):
+        self.location = location
+        self.base_port = base_port
+        self.num_replicas = num_replicas
+        self.server_urls = [f"{location}:{base_port + i}" for i in range(num_replicas)]
+        self.url_cycle = cycle(self.server_urls)
         self.semaphore = asyncio.Semaphore(max_concurrent_requests)
     
     async def send_beam_search_request(self, problem: str, search_width: int = 4, select_top_k: int = 1, max_iterations: int = 40) -> dict:
-        """Send a beam search request to the agentic server"""
+        """Send a beam search request to the agentic server using round-robin load balancing"""
         async with self.semaphore:
+            server_url = next(self.url_cycle)
             async with aiohttp.ClientSession() as session:
                 payload = {
                     "problem": problem,
@@ -26,12 +33,13 @@ class WorkDispatcher:
                     "max_iterations": max_iterations
                 }
                 
-                async with session.post(f"{self.server_url}/beam_search", json=payload) as response:
+                async with session.post(f"{server_url}/beam_search", json=payload) as response:
                     if response.status == 200:
                         return await response.json()
                     else:
                         error_text = await response.text()
-                        raise Exception(f"Server error {response.status}: {error_text}")
+                        print(f"⚠️  Server error from {server_url}: {response.status} - {error_text}")
+                        raise Exception(f"Server error {response.status} from {server_url}: {error_text}")
 
     async def process_dataset(self, dataset_slice: list, search_width: int = 4, select_top_k: int = 1, max_iterations: int = 40) -> list:
         """Process a dataset slice by sending requests to the agentic server"""
@@ -57,24 +65,18 @@ class WorkDispatcher:
         
         return await asyncio.gather(*tasks)
 
-async def check_server_health(server_url: str) -> bool:
-    """Check if the agentic server is healthy and ready"""
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f"{server_url}/health") as response:
-                if response.status == 200:
-                    health_data = await response.json()
-                    return health_data.get("models_initialized", False)
-                return False
-    except Exception as e:
-        print(f"Health check failed: {e}")
-        return False
-
 async def main():
     """Main function that orchestrates the work dispatcher"""
     
     # Configuration
-    server_url = "http://localhost:5000"
+    base_server_port = os.environ.get("BASE_SERVER_PORT", None)
+    num_replicas = os.environ.get("NUM_REPLICAS", None)
+
+    assert base_server_port is not None, "BASE_SERVER_PORT must be set"
+    assert num_replicas is not None, "NUM_REPLICAS must be set"
+
+    base_server_port = int(base_server_port)
+    num_replicas = int(num_replicas)
     max_concurrent_requests = 100
     search_width = 4
     select_top_k = 1
@@ -85,15 +87,6 @@ async def main():
     print("WORK DISPATCHER - BEAM SEARCH EVALUATION")
     print("="*80)
     
-    # Check server health
-    print("Checking server health...")
-    if not await check_server_health(server_url):
-        print(f"❌ Server at {server_url} is not healthy or models not initialized")
-        print("Please start the agentic server first: python src/examples/agentic_server.py")
-        return
-    
-    print("✅ Server is healthy and ready")
-    
     # Load dataset
     print(f"Loading dataset: {dataset_name}")
     dataset = load_dataset(dataset_name, split="test")
@@ -101,13 +94,14 @@ async def main():
     print(f"Loaded {len(dataset_list)} problems")
     
     # Initialize work dispatcher
-    dispatcher = WorkDispatcher(server_url, max_concurrent_requests)
+    dispatcher = WorkDispatcher("http://localhost", base_server_port, num_replicas, max_concurrent_requests)
+    print(f"Generated server URLs: {dispatcher.server_urls}")
     
     # Start timing
     time_start = time.time()
     print(f"\nStarting beam search evaluation with {max_concurrent_requests} concurrent requests...")
     print(f"Search parameters: width={search_width}, top_k={select_top_k}, max_iter={max_iterations}")
-    
+
     # Process dataset
     try:
         beam_search_results = await dispatcher.process_dataset(
@@ -121,6 +115,7 @@ async def main():
         total_time = time_end - time_start
         print(f"\n✅ Completed processing in {total_time:.2f} seconds")
         print(f"Average time per problem: {total_time/len(dataset_list):.2f} seconds")
+        print(f"Used round-robin load balancing across {num_replicas} servers")
         
         # Transform results into dataset format
         print("\nTransforming results into dataset format...")

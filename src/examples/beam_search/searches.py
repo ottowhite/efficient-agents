@@ -4,6 +4,7 @@ from src.utils import flatten
 import asyncio
 import numpy as np
 from asyncio import create_task
+from copy import deepcopy
 from src.examples.beam_search.thought import Thought
 
 # TODO: Do the proper beam search selection where we select top m/n of the beam search results
@@ -54,33 +55,52 @@ class BeamSearch:
     async def expand_thought(self, thought: Thought) -> list[Thought]:
         incomplete_thoughts = []
 
-        new_thought_futures = [create_task(self.extend_and_score_thought(thought)) for _ in range(self.search_width)]
-        new_thoughts = await asyncio.gather(*new_thought_futures)
+        # Generate all new steps without scoring first
+        step_futures = [create_task(self._generate_next_step(thought)) for _ in range(self.search_width)]
+        generated_steps = await asyncio.gather(*step_futures)
+        
+        # Create new thoughts and deduplicate using set
+        new_thoughts_set = set()
+        for step in generated_steps:
+            new_thought = thought.copy_with_added_step(step)
+            new_thoughts_set.add(new_thought)
+        
+        # Convert back to list for scoring
+        unique_thoughts = list(new_thoughts_set)
+        
+        # Score all unique thoughts in parallel
+        score_futures = [create_task(self.prm.generate_score(thought.get_prm_conversation())) for thought in unique_thoughts]
+        scores = await asyncio.gather(*score_futures)
+        
+        # Associate scores with thoughts
+        for thought, score in zip(unique_thoughts, scores):
+            thought.score_last_step(score)
+        
+        # If we have fewer thoughts than search_width, duplicate with deepcopy
+        while len(unique_thoughts) < self.search_width:
+            if unique_thoughts:
+                # Duplicate the best thought
+                best_thought = max(unique_thoughts, key=lambda t: t.scores[-1])
+                duplicate = deepcopy(best_thought)
+                unique_thoughts.append(duplicate)
+            else:
+                break
 
-        for new_thought in new_thoughts:
-            # If the new thought is finished, add it to the completed thoughts, otherwise add it to the possible thoughts for later expansion
+        # Process thoughts to separate completed from incomplete
+        for new_thought in unique_thoughts:
             if "final answer is" in new_thought.steps[-1].lower():
                 self.completed_thoughts.append(new_thought)
-                continue
             else:
                 incomplete_thoughts.append(new_thought)
     
         incomplete_thoughts.sort(key=lambda thought: thought.scores[-1], reverse=True)
-
         return incomplete_thoughts[:self.select_top_k]
     
-    async def extend_and_score_thought(self, thought: Thought) -> Thought:
+    async def _generate_next_step(self, thought: Thought) -> str:
+        """Generate next step for a thought without scoring."""
         conversation_str = thought_to_str(self.llm, thought)
         next_step = await self.llm.ainvoke(conversation_str)
-
-        new_thought = thought.copy_with_added_step(next_step)
-
-        score = await self.prm.generate_score(
-            new_thought.get_prm_conversation()
-        )
-        new_thought.score_last_step(score)
-
-        return new_thought
+        return next_step
     
     def is_finished(self) -> bool:
         return len(self.completed_thoughts) >= self.search_width
@@ -170,33 +190,57 @@ class DFS:
     async def expand_thought(self, thought: Thought) -> list[Thought]:
         incomplete_thoughts = []
 
-        new_thought_futures = [create_task(self.extend_and_score_thought(thought)) for _ in range(self.search_width)]
-        new_thoughts = await asyncio.gather(*new_thought_futures)
+        # Generate all new steps without scoring first
+        step_futures = [create_task(self._generate_next_step(thought)) for _ in range(self.search_width)]
+        generated_steps = await asyncio.gather(*step_futures)
+        
+        # Create new thoughts and deduplicate using set
+        new_thoughts_set = set()
+        for step in generated_steps:
+            new_thought = thought.copy_with_added_step(step)
+            new_thoughts_set.add(new_thought)
+        
+        # Convert back to list for scoring
+        unique_thoughts = list(new_thoughts_set)
+        
+        # Score all unique thoughts in parallel
+        score_futures = [create_task(self._score_thought(thought)) for thought in unique_thoughts]
+        scores = await asyncio.gather(*score_futures)
+        
+        # Associate scores with thoughts
+        for thought, score in zip(unique_thoughts, scores):
+            thought.score_last_step(score)
+        
+        # If we have fewer thoughts than search_width, duplicate with deepcopy
+        while len(unique_thoughts) < self.search_width:
+            if unique_thoughts:
+                # Duplicate the best thought
+                best_thought = max(unique_thoughts, key=lambda t: t.cumulative_score())
+                duplicate = deepcopy(best_thought)
+                unique_thoughts.append(duplicate)
+            else:
+                break
 
-        for new_thought in new_thoughts:
-            # If the new thought is finished, add it to the completed thoughts, otherwise add it to the possible thoughts for later expansion
+        # Process thoughts to separate completed from incomplete
+        for new_thought in unique_thoughts:
             if "final answer is" in new_thought.steps[-1].lower():
                 self.completed_thoughts.append(new_thought)
-                continue
             else:
                 incomplete_thoughts.append(new_thought)
     
         incomplete_thoughts.sort(key=lambda thought: thought.cumulative_score(), reverse=True)
-
         return incomplete_thoughts
     
-    async def extend_and_score_thought(self, thought: Thought) -> Thought:
+    async def _generate_next_step(self, thought: Thought) -> str:
+        """Generate next step for a thought without scoring."""
         conversation_str = thought_to_str(self.llm, thought)
         next_step = await self.llm.ainvoke(conversation_str)
-
-        new_thought = thought.copy_with_added_step(next_step)
-
-        score = await self.prm.generate_score(
-            new_thought.get_prm_conversation()
-        )
-        new_thought.score_last_step(score)
-
-        return new_thought
+        return next_step
+    
+    async def _score_thought(self, thought: Thought) -> float:
+        """Score a thought using the PRM."""
+        score = await self.prm.generate_score(thought.get_prm_conversation())
+        return score
     
     def is_finished(self) -> bool:
         return len(self.completed_thoughts) >= self.search_width

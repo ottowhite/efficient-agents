@@ -1,4 +1,5 @@
 from typing import Optional
+import hashlib
 from src.examples.beam_search.models import LLM
 
 class Thought:
@@ -7,9 +8,11 @@ class Thought:
         self.steps = steps if steps is not None else []
         self.scores = scores if scores is not None else []
         self.score_mode = "last"
+        self._steps_hash = self._compute_steps_hash()
 
     def copy_with_added_step(self, step: str):
-        return Thought(self.problem, self.steps + [step], self.scores.copy())
+        new_thought = Thought(self.problem, self.steps + [step], self.scores.copy())
+        return new_thought
 
     def score_last_step(self, score: float):
         """Append the provided score to the list of scores."""
@@ -84,6 +87,21 @@ class Thought:
             "scores": self.scores
         }
     
+    def _compute_steps_hash(self) -> str:
+        """Compute cumulative hash of problem and all steps for equality comparison."""
+        content = self.problem + "\n" + "\n".join(self.steps)
+        return hashlib.md5(content.encode('utf-8')).hexdigest()
+    
+    def __eq__(self, other) -> bool:
+        """Two thoughts are equal if they have the same problem and steps sequence."""
+        if not isinstance(other, Thought):
+            return False
+        return self._steps_hash == other._steps_hash
+    
+    def __hash__(self) -> int:
+        """Hash based on steps hash for use in sets."""
+        return hash(self._steps_hash)
+
     def __str__(self) -> str:
         steps_str = "\n".join(self.steps)
         last_score = self.scores[-1] if self.scores else None

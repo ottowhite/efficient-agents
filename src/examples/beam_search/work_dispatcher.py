@@ -80,7 +80,7 @@ async def main():
     base_server_port = int(base_server_port)
     num_replicas = int(num_replicas)
     num_problems = int(num_problems)
-    max_concurrent_requests = 100
+    max_concurrent_requests = 70
     search_width = 4
     select_top_k = 1
     max_iterations = 40

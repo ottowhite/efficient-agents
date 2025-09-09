@@ -1,4 +1,6 @@
 import os
+import asyncio
+from src.utils import monitor_event_loop_lag
 from quart import Quart, request, jsonify
 from dotenv import load_dotenv
 from src.utils import custom_chat_template
@@ -89,6 +91,12 @@ async def beam_search_endpoint():
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.before_serving
+async def startup_event():
+    loop = asyncio.get_event_loop()
+    asyncio.create_task(monitor_event_loop_lag(loop))
 
 if __name__ == '__main__':
     print("Initializing models...")

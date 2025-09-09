@@ -14,4 +14,5 @@ work-dispatcher/run: compose/up
 	$(eval BASE_SERVER_PORT=$(shell yq '.base_port' vars.yaml))
 	$(eval NUM_REPLICAS=$(shell yq '.replicas' vars.yaml))
 	$(eval NUM_PROBLEMS=$(shell yq '.num_problems' vars.yaml))
-	BASE_SERVER_PORT=$(BASE_SERVER_PORT) NUM_REPLICAS=$(NUM_REPLICAS) NUM_PROBLEMS=$(NUM_PROBLEMS) python3 -m src.examples.beam_search.work_dispatcher
+	$(eval CONCURRENT_PROBLEMS=$(shell yq '.concurrent_problems' vars.yaml))
+	BASE_SERVER_PORT=$(BASE_SERVER_PORT) NUM_REPLICAS=$(NUM_REPLICAS) NUM_PROBLEMS=$(NUM_PROBLEMS) CONCURRENT_PROBLEMS=$(CONCURRENT_PROBLEMS) python3 -m src.examples.beam_search.work_dispatcher

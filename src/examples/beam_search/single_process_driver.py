@@ -1,5 +1,7 @@
 import yappi
+from datetime import datetime
 import asyncio
+from src.utils import monitor_event_loop_lag
 from dotenv import load_dotenv
 import time
 from asyncio import create_task
@@ -48,10 +50,10 @@ async def main():
 
     dataset = load_dataset(dataset_name, split="test")
 
-    semaphore = asyncio.Semaphore(100)
+    semaphore = asyncio.Semaphore(70)
     time_start = time.time()
     # Convert dataset to list and access elements properly
-    dataset_list = list(dataset)[:10]
+    dataset_list = list(dataset)[:50]
     beam_search_tasks = [create_task(run_beam_search_with_semaphore(sample["problem"], semaphore, llm, prm)) for sample in dataset_list]
 
     for future in tqdm(
@@ -93,6 +95,7 @@ if __name__ == "__main__":
         yappi.set_clock_type("WALL")
         with yappi.run():
             asyncio.run(main())
-        yappi.get_func_stats().print_all()
+        yappi.get_func_stats().save('callgrind.out.' + datetime.now().isoformat(), 'CALLGRIND')
+
     else:
         asyncio.run(main())

@@ -72,15 +72,17 @@ async def main():
     base_server_port = os.environ.get("BASE_SERVER_PORT", None)
     num_replicas = os.environ.get("NUM_REPLICAS", None)
     num_problems = os.environ.get("NUM_PROBLEMS", None)
+    concurrent_problems = os.environ.get("CONCURRENT_PROBLEMS", None)
 
     assert base_server_port is not None, "BASE_SERVER_PORT must be set"
     assert num_replicas is not None, "NUM_REPLICAS must be set"
     assert num_problems is not None, "NUM_PROBLEMS must be set"
+    assert concurrent_problems is not None, "CONCURRENT_PROBLEMS must be set"
 
     base_server_port = int(base_server_port)
     num_replicas = int(num_replicas)
     num_problems = int(num_problems)
-    max_concurrent_requests = 70
+    max_concurrent_requests = int(concurrent_problems)
     search_width = 4
     select_top_k = 1
     max_iterations = 40

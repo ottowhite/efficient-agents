@@ -26,7 +26,7 @@ class LLM:
             model=model_name,
             base_url=base_url,
             api_key="EMPTY",  # type: ignore
-            streaming=True,
+            streaming=False,
             temperature=temperature
         )
         self.tokenizer = tokenizer
@@ -44,7 +44,7 @@ class PRM:
             model=model_name,
             base_url=base_url,
             api_key="EMPTY",  # type: ignore
-            streaming=True,
+            streaming=False,
         )
         self.num_top_logprobs = 5
 

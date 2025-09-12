@@ -1,0 +1,46 @@
+FROM vllm/vllm-openai:latest
+
+# Install nsight-compute (https://developer.nvidia.com/blog/using-nsight-compute-in-containers/)
+RUN apt-get update -y && \
+	DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+	apt-transport-https \
+	ca-certificates \
+	gnupg \
+	wget && \
+	rm -rf /var/lib/apt/lists/*
+
+RUN rm -f /etc/apt/sources.list.d/cuda*.list && \
+	wget -qO - https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub | gpg --dearmor -o /usr/share/keyrings/nvidia-cuda-archive-keyring.gpg && \
+	echo "deb [signed-by=/usr/share/keyrings/nvidia-cuda-archive-keyring.gpg] https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64 /" > /etc/apt/sources.list.d/cuda.list && \
+	apt-get update -y && \
+	DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+	nsight-compute-2025.1.1 \
+	openssh-server && \
+	rm -rf /var/lib/apt/lists/*
+
+# Install nsight-systems-cli from NVIDIA devtools repository
+RUN wget -qO - https://developer.download.nvidia.com/devtools/repos/ubuntu2204/amd64/nvidia.pub | gpg --dearmor -o /usr/share/keyrings/nvidia-devtools-keyring.gpg && \
+	echo "deb [signed-by=/usr/share/keyrings/nvidia-devtools-keyring.gpg] https://developer.download.nvidia.com/devtools/repos/ubuntu2204/amd64 /" > /etc/apt/sources.list.d/nvidia-devtools.list && \
+	apt-get update -y && \
+	DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+	nsight-systems-cli && \
+	rm -rf /var/lib/apt/lists/*
+
+# Configure SSH
+RUN mkdir /var/run/sshd && \
+	sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config && \
+	sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config && \
+	sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config && \
+	sed -i 's/#AuthorizedKeysFile/AuthorizedKeysFile/' /etc/ssh/sshd_config
+
+# Set up SSH directory and authorized_keys
+RUN mkdir -p /root/.ssh && \
+	chmod 700 /root/.ssh && \
+	echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDg1mB8+Rrk6beLTjF0AZKdoSWDg3xPPKDS5uHfyCiq29Xy050nbGrxXnRLRc+KD9GVDzPoxAFrnmDUE7zicmuaInAg0CdmS2YT3Hu9G8KTyBoYge1RMcQRPB0DCRodVldrm6nAJoRy+1e7WbLSvtlkkrSxi25iHne4eWlgc0r9yMMaAuwQnkHrvWVOhQLbIWAYda2ohcabhfvNVQ2EP1xxdbmPnJW35Rov3MG3yj3kU+9Y9oaRl/Gt+gjVF0/CHmlSNE/dSsIhfduCwIi2fkJ2rNlB3gDQnlIEEH+Er5/cN6phLfV9WPZX8e8Us1RdNv8qfFRLSlvp0S2FsHWVfHDI/KD7ssqU6EflFOo2IEh/fqeSU7NV4DrZg8xtqeGMd4OyQiSbCQx3KiNMGsHN8aOHaP+dfpFQbIr3elwCSqjroq274wYmQ3rhWQqpcOLnXNfDo3tEl6240unTP2CcFw57jrVger6WP4FTFBUiNV7IqgWxq84wKazCrCQ2iqQzSr0= otto@ottos-spectre" > /root/.ssh/authorized_keys && \
+	chmod 600 /root/.ssh/authorized_keys
+
+# Make PATH available for SSH sessions
+RUN echo 'export PATH="/opt/nvidia/nsight-compute/2025.1.1:$PATH"' >> /etc/profile
+
+# Start SSH service and original command
+ENTRYPOINT ["/bin/bash", "-c", "service ssh start && exec \"$@\"", "--"]

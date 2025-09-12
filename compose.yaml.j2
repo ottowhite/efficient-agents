@@ -1,10 +1,11 @@
 services:
   llama1b-llm:
-    image: vllm/vllm-openai:latest
-    command: >-
-      --model meta-llama/Llama-3.2-1B-Instruct --host 0.0.0.0 --port 8000 --max-model-len 10000 --gpu-memory-utilization 0.2
+    image: ncu_vllm:latest
+    command:
+      nsys launch vllm serve meta-llama/Llama-3.2-1B-Instruct --host 0.0.0.0 --port 8000 --max-model-len 10000 --gpu-memory-utilization 0.2
     ports:
       - "9999:8000"
+      - "2222:22"
     env_file:
       - .env
     volumes:
@@ -23,11 +24,12 @@ services:
       retries: 3
       start_period: 90s
   llama8b-prm:
-    image: vllm/vllm-openai:latest
-    command: >-
-      --model RLHFlow/Llama3.1-8B-PRM-Deepseek-Data --host 0.0.0.0 --port 8000 --max-model-len 10000 --gpu-memory-utilization 0.75
+    image: ncu_vllm:latest
+    command:
+      nsys launch vllm serve RLHFlow/Llama3.1-8B-PRM-Deepseek-Data --host 0.0.0.0 --port 8000 --max-model-len 10000 --gpu-memory-utilization 0.75
     ports:
       - "8888:8000"
+      - "2223:22"
     env_file:
       - .env
     volumes:
@@ -80,6 +82,11 @@ services:
       timeout: 30s
       retries: 3
       start_period: 90s
+    depends_on:
+      llama1b-llm:
+        condition: service_healthy
+      llama8b-prm:
+        condition: service_healthy
 {% endfor %}
 
   qwen-embedding-8b:

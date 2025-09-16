@@ -93,14 +93,14 @@ async def beam_search_endpoint():
         return jsonify({"error": str(e)}), 500
 
 
-# @app.before_serving
+@app.before_serving
 async def startup_event():
-    loop = asyncio.get_event_loop()
-    asyncio.create_task(monitor_event_loop_lag(loop))
-
-if __name__ == '__main__':
     print("Initializing models...")
     initialize_models()
+    print(f"Models initialized.")
+    # loop = asyncio.get_event_loop()
+    # asyncio.create_task(monitor_event_loop_lag(loop))
+
+if __name__ == '__main__':
     port = int(os.environ.get("PORT", "5000"))
-    print(f"Models initialized. Starting Flask server on port {port}...")
     app.run(host='0.0.0.0', port=port, debug=True)

@@ -3,7 +3,7 @@ PHONY: jinja compose/up
 jinja:
 	jinja2 compose.yaml.j2 vars.yaml -o compose.yaml
 
-agent-server/build:
+docker/build/agent-server:
 	docker buildx build -f docker/Dockerfile.api . -t agent-server
 
 docker/build/ncu_vllm:

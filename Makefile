@@ -20,8 +20,8 @@ nsys/start:
 
 nsys/stop:
 	COMMAND="nsys stop" $(MAKE) docker/broadcast/ncu_vllm
-	docker cp $(shell docker ps --filter "name=llama1b-llm" --format "{{.ID}}"):/vllm-workspace/report.nsys-rep data/nsys-reports/llama1b-llm.nsys-rep
-	docker cp $(shell docker ps --filter "name=llama8b-prm" --format "{{.ID}}"):/vllm-workspace/report.nsys-rep data/nsys-reports/llama8b-prm.nsys-rep
+	docker cp $(shell docker ps --filter "name=llama1b-llm" --format "{{.ID}}"):/vllm-workspace/report.nsys-rep llama1b-llm.nsys-rep
+	docker cp $(shell docker ps --filter "name=llama8b-prm" --format "{{.ID}}"):/vllm-workspace/report.nsys-rep llama8b-prm.nsys-rep
 
 compose/up: jinja
 	docker compose up -d --build --remove-orphans

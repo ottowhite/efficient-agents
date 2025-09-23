@@ -1,4 +1,6 @@
 import asyncio
+import argparse
+import statistics
 import aiohttp
 import os
 import time
@@ -95,7 +97,6 @@ class ArrivalWorkDispatcher:
         self.server_urls = [f"{location}:{base_port + i}" for i in range(num_replicas)]
         self.url_cycle = cycle(self.server_urls)
         self.dataset_cycle = cycle(dataset)
-        self.last_request_sent_time: float = 0.0
         
         self.latencies: list[float] = []
         self.requests_completed_count = 0
@@ -109,7 +110,6 @@ class ArrivalWorkDispatcher:
 
             self.requests_in_flight += 1
             request_start_time = time.time()
-            self.last_request_sent_time = request_start_time
             async with session.post(f"{server_url}{self.endpoint}", json=kwargs) as response:
                 request_end_time = time.time()
 
@@ -136,19 +136,29 @@ class ArrivalWorkDispatcher:
         os.system("clear")
         
         avg_latency = sum(self.latencies) / len(self.latencies)
+        latency_std = statistics.stdev(self.latencies) if len(self.latencies) > 1 else 0
+        latency_50p = statistics.quantiles(self.latencies, n=2)[-1]
+        latency_95p = statistics.quantiles(self.latencies, n=20)[-1]
+        latency_99p = statistics.quantiles(self.latencies, n=100)[-1]
         elapsed_time = time.time() - self.start_time if self.start_time else 0
         requests_completed_rate = self.requests_completed_count / elapsed_time if elapsed_time > 0 else 0
+
+        all_percentiles = statistics.quantiles(self.latencies, n=100)
+        all_percentiles_str = "[" + ", ".join([f"{p:.2f}" for p in all_percentiles]) + "]"
         
         print("=" * 60)
         print("📊 ARRIVAL WORK DISPATCHER METRICS DASHBOARD")
         print("=" * 60)
-        print(f"📈 Total Requests: {self.requests_completed_count}")
-        print(f"⏱️  Average Latency: {avg_latency:.3f}s")
-        print(f"🎯 Configured Arrival Rate: {self.arrival_rate:.2f} req/s")
-        print(f"🔄 Requests Completed Rate: {requests_completed_rate:.2f} req/s")
+        print(f"📈 Total Requests Completed: {self.requests_completed_count}")
+        print(f"⏱️  Average Latency: {avg_latency:.3f} ± {latency_std:.3f}s")
+        print(f"🎯 50th Percentile Latency: {latency_50p:.3f}s")
+        print(f"🎯 95th Percentile Latency: {latency_95p:.3f}s")
+        print(f"🎯 99th Percentile Latency: {latency_99p:.3f}s")
+        print(f"🎯 All Latency Percentiles: {all_percentiles_str}")
+        print(f"🎯 Provided Throughput: {self.arrival_rate:.2f} req/s")
+        print(f"🔄 Achieved Throughput: {requests_completed_rate:.2f} req/s")
         print(f"🔄 Requests In Flight: {self.requests_in_flight}")
         print(f"⏰ Elapsed Time: {elapsed_time:.1f}s")
-        print(f"🌐 Active Servers: {len(self.server_urls)}")
         print("=" * 60)
 
         # self.latencies = []
@@ -170,6 +180,7 @@ class ArrivalWorkDispatcher:
         
         try:
             while True:
+                iteration_start_time = time.time()
                 # Get next sample from dataset
                 sample = next(self.dataset_cycle)
 
@@ -186,13 +197,16 @@ class ArrivalWorkDispatcher:
                 # Print metrics dashboard at specified frequency
                 if self.requests_completed_count % self.metric_printing_frequency == 0:
                     self.print_metrics_dashboard()
-                
-                time_since_last_request = time.time() - self.last_request_sent_time
-                time_to_sleep = max(0, sleep_interval - time_since_last_request)
+
+                iteration_elapsed_time = time.time() - iteration_start_time
+                time_to_sleep = max(0, sleep_interval - iteration_elapsed_time)
+
+                if self.requests_completed_count % self.metric_printing_frequency == 0:
+                    print(f"🔄 Time since last request: {iteration_elapsed_time:.3f}s, time to sleep: {time_to_sleep:.3f}s")
                 # Wait for the arrival rate sleep interval
                 await asyncio.sleep(time_to_sleep)
 
-                
+
         except KeyboardInterrupt:
             print("\n🛑 Stopping ArrivalWorkDispatcher...")
             self.print_metrics_dashboard()
@@ -203,16 +217,18 @@ class ArrivalWorkDispatcher:
 
 async def main():
     """Main function that orchestrates the work dispatcher"""
-    
+    # Take arrival_dispatcher as a flag
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--arrival_dispatcher", action="store_true", default=False)
+    args = parser.parse_args()
+
+    arrival_dispatcher = args.arrival_dispatcher
     # Configuration
-    base_server_port = os.environ.get("BASE_SERVER_PORT", None)
-    num_replicas = os.environ.get("NUM_REPLICAS", None)
-    num_problems = os.environ.get("NUM_PROBLEMS", None)
-    concurrent_problems = os.environ.get("CONCURRENT_PROBLEMS", None)
-
-    assert base_server_port is not None, "BASE_SERVER_PORT must be set"
-    assert num_replicas is not None, "NUM_REPLICAS must be set"
-
+    base_server_port = os.environ.get("BASE_SERVER_PORT", "5000")
+    num_replicas = os.environ.get("NUM_REPLICAS", "1")
+    num_problems = os.environ.get("NUM_PROBLEMS", "500")
+    concurrent_problems = os.environ.get("CONCURRENT_PROBLEMS", "70")
 
     base_server_port = int(base_server_port)
     num_replicas = int(num_replicas)
@@ -228,8 +244,6 @@ async def main():
     print(f"Loading dataset: {dataset_name}")
     dataset = load_dataset(dataset_name, split="test")
 
-    arrival_dispatcher = True
-
     if arrival_dispatcher:
         dataset_list = list(dataset)
         print(f"Loaded {len(dataset_list)} problems for arrival dispatcher")
@@ -240,8 +254,8 @@ async def main():
             dataset_list,
             timeout=5 * 60,
             endpoint="/beam_search",
-            arrival_rate=1,
-            metric_printing_frequency=5)
+            arrival_rate=1.0,
+            metric_printing_frequency=2)
 
         await real_dispatcher.start(search_width, select_top_k, max_iterations)
 

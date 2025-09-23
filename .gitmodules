@@ -1,0 +1,6 @@
+[submodule "useful_repos/bergen"]
+	path = useful_repos/bergen
+	url = git@github.com:ottowhite/bergen.git
+[submodule "useful_repos/production-stack"]
+	path = useful_repos/production-stack
+	url = git@github.com:ottowhite/production-stack.git

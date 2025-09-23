@@ -31,4 +31,4 @@ EXPOSE 5000
 ENV PYTHONUNBUFFERED=1
 
 # Run the agent_server.py
-CMD ["uvicorn", "--host", "0.0.0.0", "--port", "5000", "--workers", "15", "--loop", "uvloop", "src.examples.beam_search.agent_server:app"]
+CMD ["uvicorn", "--host", "0.0.0.0", "--port", "5000", "--workers", "8", "--loop", "uvloop", "src.examples.beam_search.agent_server:app"]

@@ -3,6 +3,7 @@ PHONY: jinja compose/up
 jinja:
 	jinja2 compose.yaml.j2 vars.yaml -o compose.yaml
 
+
 docker/build/agent-server:
 	docker buildx build -f docker/Dockerfile.api . -t agent-server
 
@@ -11,6 +12,8 @@ docker/build/ncu_vllm:
 
 docker/run/ncu_vllm:
 	docker run --privileged --env-file .env --gpus device=0 -p 9999:8000 -p 2222:22 --volume $(HOME)/.cache/huggingface:/root/.cache/huggingface -t ncu_vllm:latest tail -f 2>&1 > /dev/null &
+
+docker/build: docker/build/agent-server docker/build/ncu_vllm
 
 docker/broadcast/ncu_vllm:
 	docker ps --filter ancestor=ncu_vllm:latest --format '{{.ID}}' | xargs -P 0 -I{} docker exec -t {} $(COMMAND)

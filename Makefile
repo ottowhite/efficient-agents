@@ -1,3 +1,5 @@
+DOCKER_REGISTRY = kungfu.azurecr.io
+
 PHONY: jinja compose/up
 
 jinja:
@@ -5,18 +7,18 @@ jinja:
 
 
 docker/build/agent-server:
-	docker buildx build -f docker/Dockerfile.api . -t agent-server
+	docker buildx build -f docker/Dockerfile.api . -t $(DOCKER_REGISTRY)/agent-server
 
 docker/build/ncu_vllm:
 	docker buildx build -f docker/Dockerfile.ncu_vllm . -t ncu_vllm
 
 docker/run/ncu_vllm:
-	docker run --privileged --env-file .env --gpus device=0 -p 9999:8000 -p 2222:22 --volume $(HOME)/.cache/huggingface:/root/.cache/huggingface -t ncu_vllm:latest tail -f 2>&1 > /dev/null &
+	docker run --privileged --env-file .env --gpus device=0 -p 9999:8000 -p 2222:22 --volume $(HOME)/.cache/huggingface:/root/.cache/huggingface -t $(DOCKER_REGISTRY)/ncu_vllm:latest tail -f 2>&1 > /dev/null &
 
 docker/build: docker/build/agent-server docker/build/ncu_vllm
 
 docker/broadcast/ncu_vllm:
-	docker ps --filter ancestor=ncu_vllm:latest --format '{{.ID}}' | xargs -P 0 -I{} docker exec -t {} $(COMMAND)
+	docker ps --filter ancestor=$(DOCKER_REGISTRY)/ncu_vllm:latest --format '{{.ID}}' | xargs -P 0 -I{} docker exec -t {} $(COMMAND)
 
 nsys/start:
 	COMMAND="nsys start --gpu-metrics-devices=0 --output=report.nsys-rep --force-overwrite=true" $(MAKE) docker/broadcast/ncu_vllm
@@ -46,3 +48,6 @@ work-dispatcher/nsys-run: compose/up
 	$(MAKE) nsys/start
 	BASE_SERVER_PORT=$(BASE_SERVER_PORT) NUM_REPLICAS=$(NUM_REPLICAS) NUM_PROBLEMS=$(NUM_PROBLEMS) CONCURRENT_PROBLEMS=$(CONCURRENT_PROBLEMS) python3 -m src.examples.beam_search.work_dispatcher
 	$(MAKE) nsys/stop
+
+down:
+	docker compose down

@@ -2,3 +2,4 @@ replicas: 1
 base_port: 5000
 num_problems: 500
 concurrent_problems: 60
+docker_registry: "kungfu.azurecr.io"

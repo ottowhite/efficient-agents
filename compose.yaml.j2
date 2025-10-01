@@ -1,8 +1,8 @@
 services:
   llama1b-llm:
-    image: ncu_vllm:latest
+    image: {{ docker_registry }}/ncu_vllm:latest
     command:
-      nsys launch vllm serve meta-llama/Llama-3.2-1B-Instruct --host 0.0.0.0 --port 8000 --max-model-len 10000 --gpu-memory-utilization 0.2
+      {{ prof_cmd }} vllm serve meta-llama/Llama-3.2-1B-Instruct --host 0.0.0.0 --port 8000 --max-model-len 10000 --gpu-memory-utilization 0.2
     ports:
       - "9999:8000"
       - "2222:22"
@@ -23,10 +23,13 @@ services:
       timeout: 30s
       retries: 3
       start_period: 90s
+    # profiles:
+    #   - donotstart
+
   llama8b-prm:
-    image: ncu_vllm:latest
+    image: {{ docker_registry }}/ncu_vllm:latest
     command:
-      nsys launch vllm serve RLHFlow/Llama3.1-8B-PRM-Deepseek-Data --host 0.0.0.0 --port 8000 --max-model-len 10000 --gpu-memory-utilization 0.75
+      {{ prof_cmd }} vllm serve RLHFlow/Llama3.1-8B-PRM-Deepseek-Data --host 0.0.0.0 --port 8000 --max-model-len 10000 --gpu-memory-utilization 0.75
     ports:
       - "8888:8000"
       - "2223:22"
@@ -51,7 +54,7 @@ services:
       retries: 3
       start_period: 90s
     #   app:
-    #     image: kungfu.azurecr.io/scepsy:latest
+    #     image: {{ docker_registry }}/scepsy:latest
     #     env_file:
     #       - .env
     #     working_dir: /app/scepsy-dev
@@ -64,11 +67,25 @@ services:
     #     command: >-
     #       bash -lc "set -euo pipefail && pip3 install --editable . && python3 examples/langchain/beam_search/beam_search_langchain.py"
     #
+    # profiles:
+    #   - donotstart
 
 {% for i in range(replicas) %}
   beam-search-server-{{ i }}:
-    image: agent-server
+    image: {{ docker_registry }}/agent-server
+    # command:
+    # - uvicorn
+    # - --host
+    # - 0.0.0.0
+    # - --port
+    # - "5000"
+    # - --workers
+    # - "1"
+    # - --loop
+    # - uvloop
+    # - src.examples.beam_search.agent_server:app
     volumes:
+      - ${HOME}/.cache/huggingface:/root/.cache/huggingface
       - ./src/:/app/src/
     environment:
       - PORT={{ base_port + i }}

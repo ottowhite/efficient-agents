@@ -10,7 +10,7 @@ docker/build/agent-server:
 	docker buildx build -f docker/Dockerfile.api . -t $(DOCKER_REGISTRY)/agent-server
 
 docker/build/ncu_vllm:
-	docker buildx build -f docker/Dockerfile.ncu_vllm . -t ncu_vllm
+	docker buildx build -f docker/Dockerfile.ncu_vllm . -t $(DOCKER_REGISTRY)/ncu_vllm
 
 docker/run/ncu_vllm:
 	docker run --privileged --env-file .env --gpus device=0 -p 9999:8000 -p 2222:22 --volume $(HOME)/.cache/huggingface:/root/.cache/huggingface -t $(DOCKER_REGISTRY)/ncu_vllm:latest tail -f 2>&1 > /dev/null &

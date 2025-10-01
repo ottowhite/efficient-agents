@@ -3,3 +3,5 @@ base_port: 5000
 num_problems: 500
 concurrent_problems: 60
 docker_registry: "kungfu.azurecr.io"
+prof_cmd: "nsys launch"
+# prof_cmd: "" # disable profile

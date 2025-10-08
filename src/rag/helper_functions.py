@@ -1,4 +1,5 @@
 from langchain_community.document_loaders import PyPDFLoader
+from langchain.storage import LocalFileStore
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.embeddings import CacheBackedEmbeddings
 from langchain.storage import InMemoryByteStore
@@ -17,6 +18,10 @@ import textwrap
 import numpy as np
 from enum import Enum
 import sys
+import time
+
+#store = LocalFileStore("/tmp/rag_cache/")
+store = LocalFileStore("./cache/")
 
 def replace_t_with_space(list_of_documents):
     """
@@ -25,7 +30,7 @@ def replace_t_with_space(list_of_documents):
     Args:
         list_of_documents: A list of document objects, each with a 'page_content' attribute.
 
-    Returns:
+    Returns:}
         The modified list of documents with tab characters replaced by spaces.
     """
 
@@ -35,7 +40,7 @@ def replace_t_with_space(list_of_documents):
 
 async def encode_pdf(path, chunk_size=1000, chunk_overlap=200):
     """
-    Encodes a PDF book into a vector store using OpenAI embeddings.
+    Encodes a PDF book into a vector store using embeddings.
 
     Args:
         path: The path to the PDF file.
@@ -60,7 +65,12 @@ async def encode_pdf(path, chunk_size=1000, chunk_overlap=200):
     # Create embeddings and vector store
     #embeddings = OpenAIEmbeddings()
     embeddings = HuggingFaceEmbeddings()
+
+    start_time = time.time()
     vectorstore = FAISS.from_documents(cleaned_texts, embeddings)
+    end_time = time.time() - start_time
+    #print(list(store.yield_keys()))
+    print("Creating embedding time:", end_time)
 
     return vectorstore
 
@@ -144,9 +154,11 @@ def get_langchain_embedding_provider(provider: EmbeddingProvider, model_id: str 
         return BedrockEmbeddings(model_id=model_id) if model_id else BedrockEmbeddings(model_id="amazon.titan-embed-text-v2:0")
     elif provider == EmbeddingProvider.HUGGINGFACE:
         embedding = HuggingFaceEmbeddings()
-        store = InMemoryByteStore()
+        #store = InMemoryByteStore()
+
         cached_embedder = CacheBackedEmbeddings.from_bytes_store(
-                            embedding, store)
+                embedding, store, namespace="haggingface",
+                query_embedding_cache=True)
         return cached_embedder 
     else:
         raise ValueError(f"Unsupported embedding provider: {provider}")

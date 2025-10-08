@@ -1,6 +1,7 @@
 import sys
 import asyncio
 import argparse
+import time
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -16,10 +17,19 @@ from langchain_community.vectorstores import FAISS
 async def main(args):
     path = args.path
     query = args.query
+    start_time = time.time()
     chunks_vector_store = await encode_pdf(path, chunk_size=1000, chunk_overlap=200)
+    encode_time = time.time() - start_time
     chunks_query_retriever = chunks_vector_store.as_retriever(search_kwargs={"k": 2})
+
+
+    start_time = time.time()
     context = await retrieve_context_per_question(query, chunks_query_retriever)
+    ret_time = time.time() - start_time
     show_context(context)
+
+    print("encode pdf time", encode_time)
+    print("retrieve context time", ret_time)
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Encode a PDF document and test a simple RAG.")

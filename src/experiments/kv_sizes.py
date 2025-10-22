@@ -7,6 +7,18 @@ class Unit(Enum):
 	KB = "KB"
 	MB = "MB"
 	GB = "GB"
+	
+	@property
+	def bytes(self) -> float:
+		"""Returns the number of bytes for this unit (1 for FLOATS as base unit)"""
+		return {
+			Unit.FLOATS: None,
+			Unit.BYTES: 1,
+			Unit.KB: 1024,
+			Unit.MB: 1024 ** 2,
+			Unit.GB: 1024 ** 3,
+		}[self]
+
 
 class UnitConverter:
 	def __init__(self, bytes_per_float: float):
@@ -78,6 +90,17 @@ class ModelConfig:
 	def get_kv_size(self, sequence_length: int, unit: Unit) -> float:
 		return sum(block.get_kv_size(sequence_length, unit) for block in self.attention_blocks)
 
+def print_transfer_times(name: str, gb_size: float, bandwidth_gbps: float) -> None:
+	transfer_time_ms = (gb_size / bandwidth_gbps) * 1000
+	print(f"{name} transfer time: {transfer_time_ms:.3f} ms")
+
+def print_all_transfer_times(gb_size: float) -> None:
+	print_transfer_times("PCIe 3.0", gb_size, 16)
+	print_transfer_times("PCIe 4.0", gb_size, 32)
+	print_transfer_times("NVLink 4", gb_size, 900)
+	print_transfer_times("NVLink 5", gb_size, 1800)
+	print_transfer_times("H100 Memory Bandwidth", gb_size, 3350)
+
 def main():
 	num_sliding_layers = 18
 	num_full_attention_layers = 18
@@ -115,7 +138,9 @@ def main():
 	model_config = ModelConfig(attention_blocks=attention_blocks)
 
 	kv_size_gb = model_config.get_kv_size(sequence_length, Unit.GB)
+
 	print(f"KV size for {sequence_length} tokens: {kv_size_gb:.3f} GB")
+	print_all_transfer_times(kv_size_gb)
 
 if __name__ == "__main__":
 	main()

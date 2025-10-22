@@ -79,16 +79,31 @@ class AttentionBlockConfig:
 		num_floats = self.attention_head_dim * effective_sequence_length * 2 * num_kv_caches
 		return self.converter.get(num_floats, unit)
 
-class ModelConfig:
-	attention_blocks: list[AttentionBlockConfig]
+class LayerConfig:
+	attention_block: AttentionBlockConfig
+	num_params: int
 
-	def __init__(self,
-		attention_blocks: list[AttentionBlockConfig]
-	):
-		self.attention_blocks = attention_blocks
+	def __init__(self, attention_block: AttentionBlockConfig, num_params: int):
+		self.attention_block = attention_block
+		self.num_params = num_params
 	
 	def get_kv_size(self, sequence_length: int, unit: Unit) -> float:
-		return sum(block.get_kv_size(sequence_length, unit) for block in self.attention_blocks)
+		return self.attention_block.get_kv_size(sequence_length, unit)
+	
+	def get_params_size(self, unit: Unit) -> float:
+		return self.attention_block.converter.get(self.num_params, unit)
+
+class ModelConfig:
+	layers: list[LayerConfig]
+
+	def __init__(self, layers: list[LayerConfig]):
+		self.layers = layers
+	
+	def get_kv_size(self, sequence_length: int, unit: Unit) -> float:
+		return sum(layer.get_kv_size(sequence_length, unit) for layer in self.layers)
+	
+	def get_params_size(self, unit: Unit) -> float:
+		return sum(layer.get_params_size(unit) for layer in self.layers)
 
 def print_transfer_times(name: str, gb_size: float, bandwidth_gbps: float) -> None:
 	transfer_time_ms = (gb_size / bandwidth_gbps) * 1000
@@ -110,36 +125,45 @@ def main():
 	sliding_window_size = 128
 	sequence_length = 1_000_000
 	bytes_per_float = 0.5
+	num_params_per_layer = int(120_000_000_000 / (num_sliding_layers + num_full_attention_layers))
 	
-	sliding_attention_blocks = [
-		AttentionBlockConfig(
-			sliding_window_size=sliding_window_size,
-			grouped_query_attention=True,
-			num_kv_heads=kv_heads_per_layer,
-			num_attention_heads=num_attention_heads,
-			attention_head_dim=attention_head_dim,
-			bytes_per_float=bytes_per_float
+	sliding_layers = [
+		LayerConfig(
+			attention_block=AttentionBlockConfig(
+				sliding_window_size=sliding_window_size,
+				grouped_query_attention=True,
+				num_kv_heads=kv_heads_per_layer,
+				num_attention_heads=num_attention_heads,
+				attention_head_dim=attention_head_dim,
+				bytes_per_float=bytes_per_float
+			),
+			num_params=num_params_per_layer
 		)
 	] * num_sliding_layers 
 
-	full_attention_blocks = [
-		AttentionBlockConfig(
-			sliding_window_size=None,
-			grouped_query_attention=True,
-			num_kv_heads=kv_heads_per_layer,
-			num_attention_heads=num_attention_heads,
-			attention_head_dim=attention_head_dim,
-			bytes_per_float=bytes_per_float
+	full_attention_layers = [
+		LayerConfig(
+			attention_block=AttentionBlockConfig(
+				sliding_window_size=None,
+				grouped_query_attention=True,
+				num_kv_heads=kv_heads_per_layer,
+				num_attention_heads=num_attention_heads,
+				attention_head_dim=attention_head_dim,
+				bytes_per_float=bytes_per_float
+			),
+			num_params=num_params_per_layer
 		)
 	] * num_full_attention_layers
 
-	attention_blocks = sliding_attention_blocks + full_attention_blocks
+	layers = sliding_layers + full_attention_layers
 
-	model_config = ModelConfig(attention_blocks=attention_blocks)
+	model_config = ModelConfig(layers=layers)
 
 	kv_size_gb = model_config.get_kv_size(sequence_length, Unit.GB)
+	params_size_gb = model_config.get_params_size(Unit.GB)
 
 	print(f"KV size for {sequence_length} tokens: {kv_size_gb:.3f} GB")
+	print(f"Params size: {params_size_gb:.3f} GB")
 	print_all_transfer_times(kv_size_gb)
 
 if __name__ == "__main__":

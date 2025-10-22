@@ -21,43 +21,30 @@ cum_latency_95 = sum(latency_percentiles[:95]) / total_latency * 100
 cum_latency_99 = sum(latency_percentiles[:99]) / total_latency * 100
 
 # Create CDF plot
-plt.figure(figsize=(10, 6))
-plt.plot(sorted_latencies, cdf_values, linewidth=2, color='steelblue')
-plt.xlabel('Latency (seconds)', fontsize=12, fontweight='bold')
-plt.ylabel('Cumulative Probability', fontsize=12, fontweight='bold')
-plt.title('Cumulative Distribution Function of Beam Search Online Latencies', fontsize=14, fontweight='bold')
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.plot(sorted_latencies, cdf_values, linewidth=2, color='steelblue')
+ax.set_xlabel('Latency (seconds)', fontsize=22)
+ax.set_ylabel('CDF', fontsize=22)
+
+# Increase tick label sizes
+ax.tick_params(axis='both', which='major', labelsize=18)
 
 # Set axis limits
-plt.xlim(0, None)  # Start x-axis at 0
-plt.ylim(0, 1)
-plt.yticks(np.arange(0, 1.1, 0.1), [f'{int(x*100)}%' for x in np.arange(0, 1.1, 0.1)])
+ax.set_xlim(0, None)  # Start x-axis at 0
+ax.set_ylim(0, 1)
 
-# Add percentile reference lines
-# Horizontal lines that stop at the CDF curve intersection
-plt.plot([0, p50], [0.5, 0.5], color='red', linestyle='--', alpha=0.7, linewidth=1.5)
-plt.plot([0, p90], [0.9, 0.9], color='orange', linestyle='--', alpha=0.7, linewidth=1.5)
-plt.plot([0, p95], [0.95, 0.95], color='green', linestyle='--', alpha=0.7, linewidth=1.5)
-plt.plot([0, p99], [0.99, 0.99], color='purple', linestyle='--', alpha=0.7, linewidth=1.5)
+# Add vertical percentile reference lines through entire plot
+ax.axvline(p50, color='red', linestyle='--', alpha=0.7, linewidth=1.5, label=f'P50: {p50:.1f}s')
+ax.axvline(p90, color='orange', linestyle='--', alpha=0.7, linewidth=1.5, label=f'P90: {p90:.1f}s')
+ax.axvline(p95, color='green', linestyle='--', alpha=0.7, linewidth=1.5, label=f'P95: {p95:.1f}s')
+ax.axvline(p99, color='purple', linestyle='--', alpha=0.7, linewidth=1.5, label=f'P99: {p99:.1f}s')
 
-# Vertical lines that stop at the CDF curve intersection
-plt.plot([p50, p50], [0, 0.5], color='red', linestyle='--', alpha=0.7, linewidth=1.5)
-plt.plot([p90, p90], [0, 0.9], color='orange', linestyle='--', alpha=0.7, linewidth=1.5)
-plt.plot([p95, p95], [0, 0.95], color='green', linestyle='--', alpha=0.7, linewidth=1.5)
-plt.plot([p99, p99], [0, 0.99], color='purple', linestyle='--', alpha=0.7, linewidth=1.5)
-
-# Add text labels for the percentile values with cumulative latency percentages
-plt.text(p50, 0.02, f'{p50:.1f}s ({cum_latency_50:.1f}%)', rotation=90, verticalalignment='bottom', 
-         horizontalalignment='right', color='red', fontweight='bold')
-plt.text(p90, 0.02, f'{p90:.1f}s ({cum_latency_90:.1f}%)', rotation=90, verticalalignment='bottom', 
-         horizontalalignment='right', color='orange', fontweight='bold')
-plt.text(p95, 0.02, f'{p95:.1f}s ({cum_latency_95:.1f}%)', rotation=90, verticalalignment='bottom', 
-         horizontalalignment='right', color='green', fontweight='bold')
-plt.text(p99, 0.02, f'{p99:.1f}s ({cum_latency_99:.1f}%)', rotation=90, verticalalignment='bottom', 
-         horizontalalignment='right', color='purple', fontweight='bold')
+# Add legend
+ax.legend(fontsize=14, loc='lower right')
 
 # Add grid and styling
-plt.grid(True, alpha=0.3, linestyle='--')
+ax.grid(True, alpha=0.3, linestyle='--')
 plt.tight_layout()
 
-# Show plot
-plt.savefig('beam_search_online_latencies.png')
+# Save plot
+plt.savefig('beam_search_online_latencies.png', dpi=300, bbox_inches='tight')

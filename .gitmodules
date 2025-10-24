@@ -7,3 +7,6 @@
 [submodule "useful_repos/RAG_Techniques"]
 	path = useful_repos/RAG_Techniques
 	url = git@github.com:ottowhite/RAG_Techniques.git
+[submodule "useful_repos/FlashRAG"]
+	path = useful_repos/FlashRAG
+	url = git@github.com:ottowhite/FlashRAG.git

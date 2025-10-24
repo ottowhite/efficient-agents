@@ -9,7 +9,7 @@ class Unit(Enum):
 	GB = "GB"
 	
 	@property
-	def bytes(self) -> float:
+	def bytes(self) -> float | None:
 		"""Returns the number of bytes for this unit (1 for FLOATS as base unit)"""
 		return {
 			Unit.FLOATS: None,

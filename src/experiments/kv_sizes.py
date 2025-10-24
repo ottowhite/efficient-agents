@@ -116,14 +116,13 @@ def print_all_transfer_times(gb_size: float) -> None:
 	print_transfer_times("NVLink 5", gb_size, 1800)
 	print_transfer_times("H100 Memory Bandwidth", gb_size, 3350)
 
-def main():
+def create_gpt_oss():
 	num_sliding_layers = 18
 	num_full_attention_layers = 18
 	kv_heads_per_layer = 8
 	num_attention_heads = 64
 	attention_head_dim = 64
 	sliding_window_size = 128
-	sequence_length = 1_000_000
 	bytes_per_float = 0.5
 	num_params_per_layer = int(120_000_000_000 / (num_sliding_layers + num_full_attention_layers))
 	
@@ -157,13 +156,25 @@ def main():
 
 	layers = sliding_layers + full_attention_layers
 
-	model_config = ModelConfig(layers=layers)
+	return ModelConfig(layers=layers)
 
-	kv_size_gb = model_config.get_kv_size(sequence_length, Unit.GB)
-	params_size_gb = model_config.get_params_size(Unit.GB)
+def main():
+	gpt_oss = create_gpt_oss()	
+	sequence_length = 1_000_000
+
+	h100_memory_capacity_gb = 80
+
+	kv_size_gb = gpt_oss.get_kv_size(sequence_length, Unit.GB)
+	params_size_gb = gpt_oss.get_params_size(Unit.GB)
+
+	h100_memory_remaining_gb = h100_memory_capacity_gb - params_size_gb
+	h100_num_tokens = h100_memory_remaining_gb / gpt_oss.get_kv_size(1, Unit.GB)
+	print(f"GPT-OSS 120B parameters size: {params_size_gb:.3f} GB")
+	print(f"H100 memory capacity: {h100_memory_capacity_gb:.3f} GB")
+	print(f"H100 memory remaining: {h100_memory_remaining_gb:.3f} GB")
+	print(f"H100 number of tokens: {h100_num_tokens:.3f}")
 
 	print(f"KV size for {sequence_length} tokens: {kv_size_gb:.3f} GB")
-	print(f"Params size: {params_size_gb:.3f} GB")
 	print_all_transfer_times(kv_size_gb)
 
 if __name__ == "__main__":
